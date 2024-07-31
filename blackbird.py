@@ -1,159 +1,124 @@
-import streamlit as st
+import sys
 import os
-import csv
-import pandas as pd
+import streamlit as st
+from datetime import datetime
 from dotenv import load_dotenv
-from itertools import permutations
-from fpdf import FPDF
 
-# Carica variabili d'ambiente se necessario
+# Aggiungi il percorso della directory 'src/modules' al PYTHONPATH
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "src/modules")))
+
+# Importa i moduli personalizzati
+try:
+    from core.username import verifyUsername
+    from utils.userAgent import getRandomUserAgent
+    from export.file_operations import createSaveDirectory
+    from export.csv import saveToCsv
+    from export.pdf import saveToPdf
+    from utils.permute import Permute
+except ModuleNotFoundError as e:
+    st.error(f"Errore nell'importazione dei moduli: {e}")
+    st.stop()
+
+# Carica le variabili d'ambiente
 load_dotenv()
 
-# Configurazione basata su variabili d'ambiente
-class Config:
-    def __init__(self):
-        self.username = None
-        self.permute = False
-        self.permuteall = False
-        self.csv = False
-        self.pdf = False
-        self.verbose = False
-        self.no_update = False
-        self.filter = None
-        self.no_nsfw = False
-        self.dump = False
-        self.proxy = None
-        self.timeout = 30
-        self.max_concurrent_requests = 30
-        self.email = None
-        self.email_file = None
-        self.username_file = None
-        self.console = None
-        self.dateRaw = None
-        self.datePretty = None
-        self.userAgent = None
-        self.usernameFoundAccounts = None
-        self.emailFoundAccounts = None
-        self.currentUser = None
-        self.currentEmail = None
-
-# Funzione di verifica dell'username (esempio)
-def verifyUsername(username, config):
-    # Implementa qui la logica per verificare l'username
-    st.write(f"Verifica dell'username: {username}")
-    # Simulazione di risultati trovati
-    found_accounts = {
-        "platform1": f"{username}@platform1.com",
-        "platform2": f"{username}@platform2.com"
-    }
-    return found_accounts
-
-# Funzione di permutazione degli username
-def permute_usernames(usernames, permuteall=False):
-    if permuteall:
-        permuted = set()
-        for r in range(1, len(usernames) + 1):
-            for p in permutations(usernames, r):
-                permuted.add(''.join(p))
-        return list(permuted)
-    else:
-        return usernames
-
-# Funzione per generare username dai dati forniti
+# Funzione per generare possibili username
 def generate_usernames(first_name, last_name, company):
     usernames = set()
-    usernames.add(f"{first_name}{last_name}")
-    usernames.add(f"{first_name}.{last_name}")
-    usernames.add(f"{last_name}.{first_name}")
-    usernames.add(f"{first_name}_{last_name}")
-    usernames.add(f"{last_name}_{first_name}")
-    usernames.add(f"{first_name[0]}{last_name}")
-    usernames.add(f"{last_name[0]}{first_name}")
-    usernames.add(f"{company.lower()}_{first_name.lower()}")
-    usernames.add(f"{company.lower()}_{last_name.lower()}")
-    usernames.add(f"{first_name.lower()}.{company.lower()}")
-    usernames.add(f"{last_name.lower()}.{company.lower()}")
+    if first_name and last_name:
+        # Combinazioni base
+        usernames.update([
+            f"{first_name}{last_name}",
+            f"{first_name}.{last_name}",
+            f"{last_name}{first_name}",
+            f"{first_name[0]}{last_name}",
+            f"{last_name}{first_name[0]}",
+            f"{first_name}_{last_name}",
+            f"{last_name}_{first_name}"
+        ])
+        
+        # Combinazioni con iniziali
+        usernames.update([
+            f"{first_name[0]}_{last_name}",
+            f"{last_name}_{first_name[0]}",
+            f"{first_name[0]}.{last_name}",
+            f"{last_name}.{first_name[0]}"
+        ])
+        
+        # Combinazioni con numeri
+        usernames.update([
+            f"{first_name}{last_name}123",
+            f"{first_name}.{last_name}123",
+            f"{first_name}_{last_name}123"
+        ])
+        
+        # Combinazioni con azienda
+        if company:
+            usernames.update([
+                f"{first_name}{last_name}{company}",
+                f"{first_name}.{last_name}@{company}",
+                f"{last_name}.{first_name}@{company}",
+                f"{first_name[0]}{last_name}@{company}",
+                f"{first_name}.{last_name}.{company}"
+            ])
     return list(usernames)
 
-# Funzione per salvare i risultati in CSV
-def saveToCsv(found_accounts, filename):
-    filepath = f"{filename}.csv"
-    with open(filepath, 'w', newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Username', 'Platform', 'Account'])
-        for user, accounts in found_accounts.items():
-            for platform, account in accounts.items():
-                writer.writerow([user, platform, account])
-    st.write(f"Risultati salvati in {filepath}")
-
-# Funzione per salvare i risultati in PDF
-def saveToPdf(found_accounts, filename):
-    filepath = f"{filename}.pdf"
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="Risultati di Verifica Username", ln=True, align='C')
-    
-    for user, accounts in found_accounts.items():
-        pdf.ln(10)
-        pdf.cell(200, 10, txt=f"Username: {user}", ln=True)
-        for platform, account in accounts.items():
-            pdf.cell(200, 10, txt=f"  {platform}: {account}", ln=True)
-    
-    pdf.output(filepath)
-    st.write(f"Risultati salvati in {filepath}")
-
-# Streamlit App
+# Funzione principale per l'app Streamlit
 def main():
-    st.title("Strumento di Verifica Username")
+    st.title("VIP SEARCH Username Finder")
 
-    # Configurazione
-    config = Config()  # Crea un'istanza della configurazione
+    # Sezione di input
+    st.sidebar.title("Input Data")
+    first_name = st.sidebar.text_input("Nome", "")
+    last_name = st.sidebar.text_input("Cognome", "")
+    company = st.sidebar.text_input("Azienda", "")
+    permute = st.sidebar.checkbox("Permutazioni", value=False)
+    output_csv = st.sidebar.checkbox("Output CSV", value=False)
+    output_pdf = st.sidebar.checkbox("Output PDF", value=False)
 
-    # Input dell'utente
-    first_name = st.text_input("Inserisci Nome")
-    last_name = st.text_input("Inserisci Cognome")
-    company = st.text_input("Inserisci Azienda")
-    permute_input = st.checkbox("Permuta Username", value=False)
-    permuteall_input = st.checkbox("Permuta Tutti gli Username", value=False)
-    save_csv = st.checkbox("Salva in CSV", value=False)
-    save_pdf = st.checkbox("Salva in PDF", value=False)
-
-    if first_name and last_name and company:
+    if st.sidebar.button("Cerca Username"):
+        if not first_name or not last_name:
+            st.write("Nome e Cognome sono richiesti per generare gli username.")
+            return
+        
+        # Genera i possibili username
         usernames = generate_usernames(first_name, last_name, company)
-        st.write(f"Username generati: {usernames}")
         
-        config.permute = permute_input
-        config.permuteall = permuteall_input
-        config.csv = save_csv
-        config.pdf = save_pdf
+        # Permutazioni degli username se richiesto
+        if permute and usernames:
+            permute_class = Permute(usernames)
+            usernames = permute_class.gather("all")
 
-        # Permutazioni se necessario
-        if config.permute or config.permuteall:
-            st.write("Permutazioni in corso...")
-            permuted_usernames = permute_usernames(usernames, config.permuteall)
-        else:
-            permuted_usernames = usernames
+        if not usernames:
+            st.write("Nessun username generato. Inserisci nome e cognome.")
+            return
 
-        # Verifica degli username
-        all_found_accounts = {}
-        for user in permuted_usernames:
-            config.currentUser = user
-            found_accounts = verifyUsername(user, config)
-            all_found_accounts[user] = found_accounts
-        
         # Mostra i risultati
-        st.write("Risultati trovati:")
-        for user, accounts in all_found_accounts.items():
-            st.write(f"Username: {user}")
-            for platform, account in accounts.items():
-                st.write(f"  {platform}: {account}")
+        st.write("Risultati ricerca per gli username:")
+        found_accounts = []
+        for user in usernames:
+            st.write(f"Cercando per {user}...")
+            # Esegui la verifica degli username
+            try:
+                result = verifyUsername(user)
+                if result:
+                    st.write(f"Trovato: {user} - {result}")
+                    found_accounts.append((user, result))
+                else:
+                    st.write(f"Nessun risultato per: {user}")
+            except Exception as e:
+                st.write(f"Errore nella verifica per {user}: {e}")
 
-        # Salva i risultati se richiesto
-        if config.csv:
-            saveToCsv(all_found_accounts, "username_results")
-        if config.pdf:
-            saveToPdf(all_found_accounts, "username_results")
+        # Salvataggio dei risultati
+        if output_csv and found_accounts:
+            createSaveDirectory()
+            saveToCsv(found_accounts, "username_results.csv")
+            st.write("Risultati salvati in CSV.")
+
+        if output_pdf and found_accounts:
+            createSaveDirectory()
+            saveToPdf(found_accounts, "username_results.pdf")
+            st.write("Risultati salvati in PDF.")
 
 if __name__ == "__main__":
     main()
