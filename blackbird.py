@@ -1,34 +1,54 @@
-import os
 import sys
+import os
 import streamlit as st
 from datetime import datetime
 from dotenv import load_dotenv
 
 # Aggiungi il percorso della directory principale al PYTHONPATH
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "modules")))
 
-# Importazioni dei moduli personalizzati
-from modules.core.username import verifyUsername
-from modules.utils.userAgent import getRandomUserAgent
-from modules.export.file_operations import createSaveDirectory
-from modules.export.csv import saveToCsv
-from modules.export.pdf import saveToPdf
-from modules.utils.permute import Permute
+# Importa i moduli personalizzati
+from core.username import verifyUsername
+from utils.userAgent import getRandomUserAgent
+from export.file_operations import createSaveDirectory
+from export.csv import saveToCsv
+from export.pdf import saveToPdf
+from utils.permute import Permute
 
+# Carica le variabili d'ambiente
 load_dotenv()
 
 # Funzione per generare possibili username
 def generate_usernames(first_name, last_name, company):
     usernames = []
     if first_name and last_name:
+        # Combinazioni base
         usernames.append(f"{first_name}{last_name}")
         usernames.append(f"{first_name}.{last_name}")
         usernames.append(f"{last_name}{first_name}")
         usernames.append(f"{first_name[0]}{last_name}")
         usernames.append(f"{last_name}{first_name[0]}")
+        usernames.append(f"{first_name}_{last_name}")
+        usernames.append(f"{last_name}_{first_name}")
+        
+        # Combinazioni con iniziali
+        usernames.append(f"{first_name[0]}_{last_name}")
+        usernames.append(f"{last_name}_{first_name[0]}")
+        usernames.append(f"{first_name[0]}.{last_name}")
+        usernames.append(f"{last_name}.{first_name[0]}")
+        
+        # Combinazioni con numeri (es. anno di nascita)
+        usernames.append(f"{first_name}{last_name}123")
+        usernames.append(f"{first_name}.{last_name}123")
+        usernames.append(f"{first_name}_{last_name}123")
+        
+        # Combinazioni con azienda
         if company:
             usernames.append(f"{first_name}{last_name}{company}")
             usernames.append(f"{first_name}.{last_name}@{company}")
+            usernames.append(f"{last_name}.{first_name}@{company}")
+            usernames.append(f"{first_name[0]}{last_name}@{company}")
+            usernames.append(f"{first_name}.{last_name}.{company}")
     return usernames
 
 # Funzione principale per l'app Streamlit
