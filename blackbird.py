@@ -59,6 +59,22 @@ def permute_usernames(usernames, permuteall=False):
     else:
         return usernames
 
+# Funzione per generare username dai dati forniti
+def generate_usernames(first_name, last_name, company):
+    usernames = set()
+    usernames.add(f"{first_name}{last_name}")
+    usernames.add(f"{first_name}.{last_name}")
+    usernames.add(f"{last_name}.{first_name}")
+    usernames.add(f"{first_name}_{last_name}")
+    usernames.add(f"{last_name}_{first_name}")
+    usernames.add(f"{first_name[0]}{last_name}")
+    usernames.add(f"{last_name[0]}{first_name}")
+    usernames.add(f"{company.lower()}_{first_name.lower()}")
+    usernames.add(f"{company.lower()}_{last_name.lower()}")
+    usernames.add(f"{first_name.lower()}.{company.lower()}")
+    usernames.add(f"{last_name.lower()}.{company.lower()}")
+    return list(usernames)
+
 # Funzione per salvare i risultati in CSV
 def saveToCsv(found_accounts, filename):
     filepath = f"{filename}.csv"
@@ -95,14 +111,18 @@ def main():
     config = Config()  # Crea un'istanza della configurazione
 
     # Input dell'utente
-    username_input = st.text_input("Inserisci Username")
+    first_name = st.text_input("Inserisci Nome")
+    last_name = st.text_input("Inserisci Cognome")
+    company = st.text_input("Inserisci Azienda")
     permute_input = st.checkbox("Permuta Username", value=False)
     permuteall_input = st.checkbox("Permuta Tutti gli Username", value=False)
     save_csv = st.checkbox("Salva in CSV", value=False)
     save_pdf = st.checkbox("Salva in PDF", value=False)
 
-    if username_input:
-        config.username = [username_input]
+    if first_name and last_name and company:
+        usernames = generate_usernames(first_name, last_name, company)
+        st.write(f"Username generati: {usernames}")
+        
         config.permute = permute_input
         config.permuteall = permuteall_input
         config.csv = save_csv
@@ -111,9 +131,9 @@ def main():
         # Permutazioni se necessario
         if config.permute or config.permuteall:
             st.write("Permutazioni in corso...")
-            permuted_usernames = permute_usernames(config.username, config.permuteall)
+            permuted_usernames = permute_usernames(usernames, config.permuteall)
         else:
-            permuted_usernames = config.username
+            permuted_usernames = usernames
 
         # Verifica degli username
         all_found_accounts = {}
