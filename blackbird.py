@@ -1,8 +1,11 @@
 import sys
 import os
-import streamlit as st
+from flask import Flask, request, render_template, send_file
 from datetime import datetime
 from dotenv import load_dotenv
+from io import BytesIO
+import pandas as pd
+import pdfkit
 
 # Aggiungi il percorso della directory 'src/modules' al PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "src/modules")))
@@ -16,11 +19,13 @@ try:
     from export.pdf import saveToPdf
     from utils.permute import Permute
 except ModuleNotFoundError as e:
-    st.error(f"Errore nell'importazione dei moduli: {e}")
-    st.stop()
+    print(f"Errore nell'importazione dei moduli: {e}")
+    sys.exit()
 
 # Carica le variabili d'ambiente
 load_dotenv()
+
+app = Flask(__name__)
 
 # Funzione per generare possibili username
 def generate_usernames(first_name, last_name, company):
@@ -63,24 +68,20 @@ def generate_usernames(first_name, last_name, company):
             ])
     return list(usernames)
 
-# Funzione principale per l'app Streamlit
-def main():
-    st.title("VIP SEARCH Username Finder")
+# Route principale per la pagina web
+@app.route("/", methods=["GET", "POST"])
+def index():
+    if request.method == "POST":
+        first_name = request.form.get("first_name")
+        last_name = request.form.get("last_name")
+        company = request.form.get("company")
+        permute = request.form.get("permute") == "on"
+        output_csv = request.form.get("output_csv") == "on"
+        output_pdf = request.form.get("output_pdf") == "on"
 
-    # Sezione di input
-    st.sidebar.title("Input Data")
-    first_name = st.sidebar.text_input("Nome", "")
-    last_name = st.sidebar.text_input("Cognome", "")
-    company = st.sidebar.text_input("Azienda", "")
-    permute = st.sidebar.checkbox("Permutazioni", value=False)
-    output_csv = st.sidebar.checkbox("Output CSV", value=False)
-    output_pdf = st.sidebar.checkbox("Output PDF", value=False)
-
-    if st.sidebar.button("Cerca Username"):
         if not first_name or not last_name:
-            st.write("Nome e Cognome sono richiesti per generare gli username.")
-            return
-        
+            return render_template("index.html", error="Nome e Cognome sono richiesti.")
+
         # Genera i possibili username
         usernames = generate_usernames(first_name, last_name, company)
         
@@ -90,35 +91,39 @@ def main():
             usernames = permute_class.gather("all")
 
         if not usernames:
-            st.write("Nessun username generato. Inserisci nome e cognome.")
-            return
+            return render_template("index.html", error="Nessun username generato. Inserisci nome e cognome.")
 
-        # Mostra i risultati
-        st.write("Risultati ricerca per gli username:")
+        # Verifica gli username
         found_accounts = []
         for user in usernames:
-            st.write(f"Cercando per {user}...")
-            # Esegui la verifica degli username
             try:
                 result = verifyUsername(user)
                 if result:
-                    st.write(f"Trovato: {user} - {result}")
                     found_accounts.append((user, result))
-                else:
-                    st.write(f"Nessun risultato per: {user}")
             except Exception as e:
-                st.write(f"Errore nella verifica per {user}: {e}")
+                found_accounts.append((user, f"Errore: {e}"))
 
         # Salvataggio dei risultati
         if output_csv and found_accounts:
-            createSaveDirectory()
-            saveToCsv(found_accounts, "username_results.csv")
-            st.write("Risultati salvati in CSV.")
+            csv_output = BytesIO()
+            df = pd.DataFrame(found_accounts, columns=["Username", "Risultato"])
+            df.to_csv(csv_output, index=False)
+            csv_output.seek(0)
+            return send_file(csv_output, as_attachment=True, download_name="username_results.csv", mimetype="text/csv")
 
         if output_pdf and found_accounts:
-            createSaveDirectory()
-            saveToPdf(found_accounts, "username_results.pdf")
-            st.write("Risultati salvati in PDF.")
+            pdf_output = BytesIO()
+            html_content = "<h1>Risultati della Ricerca</h1><ul>"
+            for user, result in found_accounts:
+                html_content += f"<li>{user}: {result}</li>"
+            html_content += "</ul>"
+            pdfkit.from_string(html_content, pdf_output)
+            pdf_output.seek(0)
+            return send_file(pdf_output, as_attachment=True, download_name="username_results.pdf", mimetype="application/pdf")
+
+        return render_template("index.html", results=found_accounts)
+
+    return render_template("index.html")
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)
