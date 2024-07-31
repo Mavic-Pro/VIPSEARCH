@@ -1,10 +1,13 @@
 import os
+import sys
 import streamlit as st
-from rich.console import Console
-import logging
 from datetime import datetime
-
 from dotenv import load_dotenv
+
+# Aggiungi il percorso della directory principale al PYTHONPATH
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+# Importazioni dei moduli personalizzati
 from modules.core.username import verifyUsername
 from modules.utils.userAgent import getRandomUserAgent
 from modules.export.file_operations import createSaveDirectory
@@ -14,19 +17,7 @@ from modules.utils.permute import Permute
 
 load_dotenv()
 
-# Inizializzazione configurazione
-console = Console()
-log_path = "logs/log.txt"
-
-def setup_logging():
-    if not os.path.exists("logs/"):
-        os.makedirs("logs/")
-    logging.basicConfig(
-        filename=log_path,
-        level=logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
+# Funzione per generare possibili username
 def generate_usernames(first_name, last_name, company):
     usernames = []
     if first_name and last_name:
@@ -40,24 +31,24 @@ def generate_usernames(first_name, last_name, company):
             usernames.append(f"{first_name}.{last_name}@{company}")
     return usernames
 
+# Funzione principale per l'app Streamlit
 def main():
     st.title("Blackbird Username Finder")
 
+    # Sezione di input
     st.sidebar.title("Input Data")
     first_name = st.sidebar.text_input("Nome", "")
     last_name = st.sidebar.text_input("Cognome", "")
     company = st.sidebar.text_input("Azienda", "")
-
     permute = st.sidebar.checkbox("Permutazioni", value=False)
     output_csv = st.sidebar.checkbox("Output CSV", value=False)
     output_pdf = st.sidebar.checkbox("Output PDF", value=False)
 
     if st.sidebar.button("Cerca Username"):
-        setup_logging()
-        
         # Genera i possibili username
         usernames = generate_usernames(first_name, last_name, company)
-
+        
+        # Permutazioni degli username se richiesto
         if permute and usernames:
             permute_class = Permute(usernames)
             usernames = permute_class.gather("all")
@@ -70,22 +61,25 @@ def main():
         st.write("Risultati ricerca per gli username:")
         found_accounts = []
         for user in usernames:
-            console.print(f"Searching for {user}")
+            st.write(f"Cercando per {user}...")
             # Esegui la verifica degli username
             result = verifyUsername(user)
             if result:
-                st.write(f"Found: {user} - {result}")
+                st.write(f"Trovato: {user} - {result}")
                 found_accounts.append((user, result))
+            else:
+                st.write(f"Nessun risultato per: {user}")
 
+        # Salvataggio dei risultati
         if output_csv and found_accounts:
             createSaveDirectory()
-            saveToCsv(found_accounts)
-            st.write("Salvato in CSV.")
+            saveToCsv(found_accounts, "username_results.csv")
+            st.write("Risultati salvati in CSV.")
 
         if output_pdf and found_accounts:
             createSaveDirectory()
-            saveToPdf(found_accounts, "username")
-            st.write("Salvato in PDF.")
+            saveToPdf(found_accounts, "username_results.pdf")
+            st.write("Risultati salvati in PDF.")
 
 if __name__ == "__main__":
     main()
