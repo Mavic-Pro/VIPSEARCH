@@ -4,8 +4,8 @@ import streamlit as st
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Aggiungi il percorso della directory principale al PYTHONPATH
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "modules")))
+# Aggiungi il percorso della directory 'modules' al PYTHONPATH
+sys.path.append(os.path.join(os.path.dirname(__file__), "modules"))
 
 # Importa i moduli personalizzati
 from core.username import verifyUsername
