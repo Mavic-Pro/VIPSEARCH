@@ -4,16 +4,20 @@ import streamlit as st
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Aggiungi il percorso della directory 'modules' al PYTHONPATH
-sys.path.append(os.path.join(os.path.dirname(__file__), "modules"))
+# Aggiungi il percorso della directory 'src/modules' al PYTHONPATH
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "src/modules")))
 
 # Importa i moduli personalizzati
-from core.username import verifyUsername
-from utils.userAgent import getRandomUserAgent
-from export.file_operations import createSaveDirectory
-from export.csv import saveToCsv
-from export.pdf import saveToPdf
-from utils.permute import Permute
+try:
+    from core.username import verifyUsername
+    from utils.userAgent import getRandomUserAgent
+    from export.file_operations import createSaveDirectory
+    from export.csv import saveToCsv
+    from export.pdf import saveToPdf
+    from utils.permute import Permute
+except ModuleNotFoundError as e:
+    st.error(f"Errore nell'importazione dei moduli: {e}")
+    st.stop()
 
 # Carica le variabili d'ambiente
 load_dotenv()
@@ -53,7 +57,7 @@ def generate_usernames(first_name, last_name, company):
 
 # Funzione principale per l'app Streamlit
 def main():
-    st.title("Blackbird Username Finder")
+    st.title("VIP SEARCH Username Finder")
 
     # Sezione di input
     st.sidebar.title("Input Data")
